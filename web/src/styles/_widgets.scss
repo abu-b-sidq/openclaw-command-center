@@ -1,0 +1,65 @@
+// ---------- system overview ----------
+.cc-sysgrid { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+.cc-kv { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.cc-kv li { display: flex; align-items: center; gap: 8px; font-size: 11px; min-width: 0; }
+.cc-kv li .icon { color: var(--cyan); width: 13px; height: 13px; }
+.cc-kv li span { flex: 1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-kv li b { font: 600 11px var(--sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cc-kv li b.warn { color: var(--amber); }
+.cc-kv li b.bad { color: var(--red); }
+.cc-kv li b.ok { color: var(--green); }
+.cc-ring { width: 92px; height: 92px; position: relative; display: grid; place-items: center; align-content: center; }
+.cc-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.cc-ring circle { fill: none; stroke-width: 7; }
+.cc-ring .t { stroke: var(--track); }
+.cc-ring .v { stroke: var(--green); stroke-linecap: round; stroke-dasharray: calc(var(--p) * 1) 100; transition: stroke-dasharray .8s; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--green) 40%, transparent)); }
+.cc-ring.warn .v { stroke: var(--amber); }
+.cc-ring.bad .v { stroke: var(--red); }
+.cc-ring b { position: relative; font: 600 20px var(--sans); font-variant-numeric: tabular-nums; line-height: 1; }
+.cc-ring small { position: relative; font: 8px var(--mono); letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+
+// ---------- generic rows ----------
+.cc-row { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.cc-row .ic { width: 26px; height: 26px; border-radius: 9px; display: grid; place-items: center; flex: none; background: color-mix(in srgb, var(--c, var(--cyan)) 11%, transparent); color: var(--c, var(--cyan)); border: 1px solid color-mix(in srgb, var(--c, var(--cyan)) 22%, transparent); }
+.cc-row .ic .icon { width: 13px; height: 13px; }
+.cc-row .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.cc-row .tx b { font-weight: 500; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-row .tx small { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-row .rt { font: 500 9.5px var(--mono); letter-spacing: .4px; color: var(--muted); white-space: nowrap; text-align: right; }
+.cc-row .rt.ok { color: var(--green); }
+.cc-row .rt.warn { color: var(--amber); }
+.cc-row .rt.bad { color: var(--red); }
+.cc-row a, .cc-row button.cc-mini { font: 500 9.5px var(--mono); letter-spacing: .4px; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--input-bg); text-decoration: none; cursor: pointer; white-space: nowrap; color: var(--text); }
+.cc-row a:hover, .cc-row button.cc-mini:hover { border-color: color-mix(in srgb, var(--cyan) 40%, transparent); }
+.cc-sched .when { font: 600 11px var(--sans); font-variant-numeric: tabular-nums; width: 40px; flex: none; color: var(--text); }
+.cc-sched .when small { display: block; font: 9px var(--mono); color: var(--muted); letter-spacing: .4px; }
+.cc-sched li.soon .when { color: var(--amber); }
+.cc-bar { height: 4px; border-radius: 3px; background: var(--track); overflow: hidden; margin-top: 4px; }
+.cc-bar i { display: block; height: 100%; width: var(--w, 30%); border-radius: 3px; background: linear-gradient(90deg, var(--c, var(--cyan)), color-mix(in srgb, var(--c, var(--cyan)) 55%, var(--purple))); }
+.cc-bar.indet i { width: 38%; animation: cc-indet 1.6s ease-in-out infinite; }
+@keyframes cc-indet { 0% { transform: translateX(-100%); } 100% { transform: translateX(270%); } }
+.cc-tasks .cc-row, .cc-ops .cc-row, .cc-models .cc-row { align-items: flex-start; }
+.cc-tasks li { cursor: default; }
+.cc-tasks .tx b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+.cc-models .win { display: flex; align-items: center; gap: 7px; font: 9.5px var(--mono); color: var(--muted); margin-top: 3px; }
+.cc-models .win .cc-bar { flex: 1; margin: 0; }
+.cc-models .win em { font-style: normal; min-width: 30px; text-align: right; color: var(--text); }
+.cc-models .tx b small { display: inline; }
+
+// ---------- right now / quick / say / control ----------
+.cc-now li .ic { --c: var(--amber); }
+.cc-now li.ok .ic { --c: var(--green); }
+.cc-now li.info .ic { --c: var(--cyan); }
+.cc-qa { display: grid; gap: 6px; }
+.cc-qa-btn { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 11px; border: 1px solid var(--line); background: var(--panel-2); cursor: pointer; text-decoration: none; font: 500 9.5px var(--mono); letter-spacing: 1px; text-transform: uppercase; color: var(--text); text-align: left; }
+.cc-qa-btn .icon { color: var(--cyan); }
+.cc-qa-btn:hover { border-color: color-mix(in srgb, var(--cyan) 35%, transparent); background: var(--hover); }
+.cc-qa-btn:disabled { opacity: .5; cursor: default; }
+.cc-say li button { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 10px; border: 1px solid transparent; cursor: pointer; font-size: 11.5px; color: var(--text); }
+.cc-say li button::before { content: ""; width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--cyan); flex: none; }
+.cc-say li button:hover, .cc-say li button:focus-visible { border-color: var(--line); background: var(--hover); }
+.cc-control { border-color: color-mix(in srgb, var(--red) 22%, var(--line)); }
+.cc-control .cc-ph h2 .icon { color: var(--red); }
+.cc-stop { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 11px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--red) 40%, transparent); background: color-mix(in srgb, var(--red) 10%, var(--panel)); color: var(--red); font: 600 10px var(--mono); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; }
+.cc-stop:disabled { opacity: .45; cursor: default; }
+.cc-note { margin: 7px 2px 0; font-size: 10px; color: var(--muted); }

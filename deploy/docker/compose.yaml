@@ -1,0 +1,28 @@
+# docker compose -f deploy/docker/compose.yaml up -d --build
+#
+# Host networking keeps the gateway on loopback (ws://127.0.0.1:18789), so no device pairing is needed and
+# the app is reachable only on the host's 127.0.0.1:18821. Put your TLS reverse proxy in front of that.
+# (Docker Desktop on macOS/Windows: enable host networking in its settings, or use bridge networking with
+# OPENCLAW_GATEWAY_URL=ws://host.docker.internal:18789 and approve the device with openclaw devices approve.)
+services:
+  command-center:
+    build:
+      context: ../..
+    image: openclaw-command-center
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      CC_HOST: 127.0.0.1
+      CC_PORT: '18821'
+      # CC_BASE_PATH: /command-center/
+      # CC_TRUST_PROXY: "true"
+      OPENCLAW_GATEWAY_URL: ws://127.0.0.1:18789
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:?set OPENCLAW_GATEWAY_TOKEN (openclaw config get gateway.auth.token)}
+      CC_SESSION_KEY: ${CC_SESSION_KEY:-agent:main:main}
+      # Optional full config file (mount it below): CC_CONFIG: /config/config.json
+    volumes:
+      - command-center-data:/data
+      # - ./config.json:/config/config.json:ro
+
+volumes:
+  command-center-data:

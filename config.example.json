@@ -1,0 +1,88 @@
+{
+  "//": "Copy to config.json (or pass --config <file>) and keep only what you change. Every key is optional; unknown keys are an error. Secrets can come from the environment instead (see README).",
+  "server": {
+    "//": "Bind to loopback and put a TLS reverse proxy in front. basePath is the public path, e.g. /command-center/.",
+    "host": "127.0.0.1",
+    "port": 18821,
+    "basePath": "/",
+    "trustProxy": false,
+    "allowedOrigins": [],
+    "dataDir": "./data",
+    "staticDir": "./dist/web/browser",
+    "dryRun": false
+  },
+  "auth": {
+    "//": "password: built-in sign-in (first run prints a generated password; change it with npm run set-password). proxy: your reverse proxy already authenticated the user. none: loopback only, for development.",
+    "mode": "password",
+    "sessionDays": 30,
+    "trustedPeerUids": [],
+    "proxyHeader": null
+  },
+  "gateway": {
+    "//": "The token is read from ~/.openclaw/openclaw.json (gateway.auth.token) when not set here or in OPENCLAW_GATEWAY_TOKEN. Off loopback the app pairs as a device: approve it with openclaw devices approve <id>.",
+    "url": "ws://127.0.0.1:18789",
+    "token": null,
+    "openclawConfig": "~/.openclaw/openclaw.json",
+    "device": "auto"
+  },
+  "assistant": {
+    "//": "The OpenClaw session that typed and spoken turns go to. The name defaults to that agent's identity.",
+    "name": null,
+    "tagline": "Command Center",
+    "sessionKey": "agent:main:main"
+  },
+  "operator": {
+    "name": "Operator",
+    "initials": null
+  },
+  "ui": {
+    "//": "timeZone: IANA zone for every clock and time on screen (default: the browser's). controlUiUrl: your OpenClaw Control UI, for deep links.",
+    "timeZone": null,
+    "timeZoneLabel": null,
+    "controlUiUrl": null,
+    "calendarUrl": "https://calendar.google.com/",
+    "suggestions": [
+      "What needs me right now?",
+      "Any automations failing?",
+      "What’s running on the gateway right now?",
+      "Summarise what happened today",
+      "What did I miss in my channels?",
+      "How much have I used today?"
+    ]
+  },
+  "talk": {
+    "//": "Realtime voice through the gateway's Talk (WebRTC). Needs a realtime voice provider configured in OpenClaw.",
+    "enabled": true,
+    "maxLive": 3
+  },
+  "approvals": {
+    "native": {
+      "//": "Exec, plugin and system approvals from the gateway's own approval queue.",
+      "enabled": true
+    },
+    "files": {
+      "//": "Optional: approval requests your agent writes as markdown files (<dir>/<YYYYMMDD>-<n>.md). A decision is sent to the agent as a chat message in its own session.",
+      "enabled": false,
+      "dir": "~/.openclaw/workspace/approvals",
+      "sessionKeyPrefix": "agent:main:command-center-approval-",
+      "gatedPattern": null,
+      "gatedLabel": "Gated"
+    }
+  },
+  "integrations": {
+    "google": {
+      "//": "Optional calendar and inbox panels through the gog CLI (OpenClaw's Google Workspace skill). command is the argv prefix used to run it.",
+      "enabled": false,
+      "command": ["gog"],
+      "calendar": true,
+      "calendarHours": 36,
+      "mail": true,
+      "mailQuery": "is:unread is:important in:inbox newer_than:2d",
+      "mailMax": 8
+    }
+  },
+  "host": {
+    "//": "Memory, disk, load and gateway RSS of the machine this server runs on. Turn off when it isn't the gateway host.",
+    "enabled": true
+  }
+}

@@ -1,0 +1,12 @@
+// Global styles. The command center is one dense, fixed layout, so its look lives here as a small design
+// system (tokens + layout + widgets) rather than scattered across component stylesheets.
+@use 'styles/tokens';
+@use 'styles/base';
+@use 'styles/layout';
+@use 'styles/widgets';
+@use 'styles/core';
+@use 'styles/voice';
+@use 'styles/queue';
+@use 'styles/drawer';
+@use 'styles/login';
+@use 'styles/responsive';

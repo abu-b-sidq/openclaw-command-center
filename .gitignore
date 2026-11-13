@@ -1,0 +1,26 @@
+# Build output
+/dist
+/out-tsc
+/.angular/cache
+
+# Dependencies
+/node_modules
+
+# Runtime state: password hash, session secret, device identity, action log
+/data
+
+# Local config (may hold secrets); config.example.json is the template
+/config.json
+/config.*.json
+!/config.example.json
+
+# Logs and OS files
+npm-debug.log*
+*.log
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json

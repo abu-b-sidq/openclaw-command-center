@@ -1,0 +1,41 @@
+@use 'tokens' as *;
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body.cc {
+  font: 12px/1.45 var(--sans); color: var(--text); -webkit-font-smoothing: antialiased;
+  background: radial-gradient(ellipse at 46% 36%, #f0e8ee80, transparent 46%), radial-gradient(ellipse at 90% 100%, #e6efe980, transparent 40%), var(--bg);
+  @include dark {
+    background: radial-gradient(ellipse at 46% 36%, #2a2235aa, transparent 48%), radial-gradient(ellipse at 90% 100%, #16272499, transparent 42%), var(--bg);
+  }
+}
+button, input { font: inherit; color: inherit; }
+a { color: inherit; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.icon { width: 14px; height: 14px; flex: none; }
+cc-icon { display: contents; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted); }
+
+.icon-button { border: 0; background: none; color: var(--muted); width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; }
+.icon-button:hover { background: var(--hover); color: var(--text); }
+
+.live-pill { display: inline-flex; align-items: center; gap: 6px; font: 9px var(--sans); letter-spacing: .3px; color: var(--muted); padding: 5px 10px; border: 1px solid var(--line); border-radius: 20px; background: var(--input-bg); white-space: nowrap; }
+.live-pill i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); animation: live-pulse 2.4s ease-in-out infinite; }
+.live-pill.bad { color: var(--bad); }
+.live-pill.bad i { background: var(--bad); animation: none; }
+@keyframes live-pulse { 50% { opacity: .45; } }
+
+.status-dot { width: 7px; height: 7px; display: inline-block; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 15%, transparent); flex-shrink: 0; }
+.status-dot.warn, .warn > .status-dot { background: var(--amber); box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 15%, transparent); }
+.status-dot.bad, .bad > .status-dot { background: var(--red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 15%, transparent); }
+.status-dot.off { background: var(--muted); box-shadow: none; opacity: .6; }
+
+.toast { position: fixed; bottom: 84px; left: 50%; transform: translate(-50%, 15px); background: var(--text); color: var(--bg); padding: 11px 18px; border-radius: 9px; box-shadow: 0 12px 40px #0003; opacity: 0; pointer-events: none; z-index: 100; transition: opacity .2s, transform .2s; max-width: 80vw; font-size: 12px; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+// Sits just above the bottom bar (and its talk button); the toast moves up while it shows.
+.cc-banner { position: fixed; left: 50%; bottom: 78px; translate: -50% 0; z-index: 40; max-width: min(720px, 92vw); font: 500 10.5px var(--sans); line-height: 1.5; color: var(--purple); background: var(--dialog-bg); border: 1px solid color-mix(in srgb, var(--purple) 40%, transparent); padding: 7px 14px; border-radius: 14px; text-align: center; }
+body:has(.cc-banner) .toast { bottom: 124px; }
+.cc-banner.bad { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
+.cc-banner code { font-family: var(--mono); background: var(--hover); padding: 1px 5px; border-radius: 4px; }

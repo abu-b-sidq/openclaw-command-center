@@ -1,0 +1,5 @@
+# The stylesheets are a dense, one-rule-per-line design system; keep them that way.
+web/src/styles/
+dist/
+node_modules/
+package-lock.json

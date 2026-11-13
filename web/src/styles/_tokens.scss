@@ -1,0 +1,35 @@
+// Design tokens: the "paper and pearl" theme in light, dark and system modes.
+// html[data-theme] is set before first paint by public/theme-init.js and kept in sync by ThemeService.
+
+:root {
+  --bg: #f5f3ef; --text: #303332; --muted: #686f65; --cyan: #356f70; --green: #47765b; --purple: #76629a;
+  --amber: #875f2f; --red: #9a4b45; --line: #333b341c; --panel: #ffffffbb; --panel-2: #ffffff8c; --hover: #555c4a08;
+  --radius: 16px; --input-bg: #ffffffaa; --dialog-bg: #faf9f6; --on-accent: #fff;
+  --shadow: 0 1px 0 #ffffffb3 inset, 0 10px 30px #5a50400f; --orb-ink: #39404a; --track: #333b3414;
+  --ok: #4f7a57; --bad: #a6503f; --warn: #9a6a2c;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --sans: Inter, "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+}
+
+@mixin dark-tokens {
+  color-scheme: dark;
+  --bg: #0d1012; --text: #e4e6e1; --muted: #9aa39a; --cyan: #7fc4c2; --green: #8fc5a0; --purple: #b4a3d8;
+  --amber: #d8ab6f; --red: #e0857c; --line: #d9e3dc1a; --panel: #171c1ecc; --panel-2: #1b2123b3; --hover: #ffffff08;
+  --input-bg: #161b1daa; --dialog-bg: #14181a; --on-accent: #061313;
+  --shadow: 0 1px 0 #ffffff0a inset, 0 14px 34px #0000004d; --orb-ink: #f2f4ff; --track: #ffffff12;
+  --ok: #79a881; --bad: #d9806d; --warn: #d8ab6f;
+}
+
+html { color-scheme: light; }
+html[data-theme="dark"] { @include dark-tokens; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] { @include dark-tokens; }
+}
+
+// Applies a block of declarations in dark mode, whether chosen explicitly or by the system.
+@mixin dark {
+  html[data-theme="dark"] & { @content; }
+  @media (prefers-color-scheme: dark) {
+    html[data-theme="system"] & { @content; }
+  }
+}

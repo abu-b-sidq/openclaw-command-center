@@ -1,0 +1,25 @@
+# systemd user unit. Install:
+#   mkdir -p ~/.config/systemd/user ~/.config/openclaw-command-center
+#   cp deploy/systemd/openclaw-command-center.service ~/.config/systemd/user/
+#   cp config.example.json ~/.config/openclaw-command-center/config.json   # then edit it
+#   systemctl --user daemon-reload && systemctl --user enable --now openclaw-command-center
+#   loginctl enable-linger "$USER"   # keep it running after you log out
+# Edit WorkingDirectory to where you cloned the repo (and built it with npm ci && npm run build), and
+# ExecStart to your node binary (22.18 or newer) if it isn't /usr/bin/node.
+[Unit]
+Description=OpenClaw Command Center
+After=network-online.target openclaw-gateway.service
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=%h/openclaw-command-center
+ExecStart=/usr/bin/node server/src/main.ts --config %h/.config/openclaw-command-center/config.json
+# Secrets can stay out of the config file:
+# Environment=OPENCLAW_GATEWAY_TOKEN=...
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

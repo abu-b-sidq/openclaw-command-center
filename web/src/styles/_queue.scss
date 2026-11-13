@@ -1,0 +1,51 @@
+// ---------- needs you: approval rows (card, drawer) ----------
+.live-queue { display: flex; flex-direction: column; padding: 11px 13px; }
+.live-queue.calm { flex: 0 0 auto !important; min-height: 0 !important; }
+.live-queue .lq-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
+.live-queue .lq-head .eyebrow { display: flex; align-items: center; gap: 7px; font: 500 9.5px var(--mono); letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+.live-queue .lq-head .eyebrow .icon { width: 13px; height: 13px; color: var(--amber); }
+.live-queue .lq-head b { font: 600 10px var(--sans); color: var(--amber); background: color-mix(in srgb, var(--amber) 15%, transparent); border-radius: 10px; padding: 2px 8px; }
+.live-queue.calm .lq-head b { color: var(--green); background: color-mix(in srgb, var(--green) 15%, transparent); }
+.live-queue .lq-list { flex: 0 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--muted) 40%, transparent) transparent; }
+.live-queue .lq-item { margin-bottom: 6px; flex: none; }
+.live-queue.ping { animation: lq-ping 1.1s ease-out 2; }
+@keyframes lq-ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--amber) 50%, transparent); } 100% { box-shadow: 0 0 0 16px transparent; } }
+.lq-head-r { display: flex; align-items: center; gap: 6px; }
+.lq-bell { all: unset; cursor: pointer; font: 8.5px var(--sans); letter-spacing: .2px; color: var(--muted); padding: 2px 7px; border-radius: 9px; border: 1px solid var(--line); }
+.lq-bell[aria-pressed="true"] { color: var(--cyan); border-color: color-mix(in srgb, var(--cyan) 40%, transparent); }
+.lq-bell:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+.lq-list { display: flex; flex-direction: column; gap: 7px; overflow: auto; min-height: 0; }
+.lq-item { border: 1px solid var(--line); border-radius: 12px; padding: 9px 10px; background: var(--input-bg); text-align: left; }
+.lq-item[data-state="sending"], .lq-item[data-state="running"] { border-color: color-mix(in srgb, var(--cyan) 50%, transparent); }
+.lq-main { all: unset; display: block; box-sizing: border-box; width: 100%; cursor: pointer; }
+.lq-main:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 6px; }
+.lq-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 8.5px; line-height: 1.5; color: var(--muted); letter-spacing: .2px; }
+.lq-meta code, .lq-title code { font: 8.5px "JetBrains Mono", ui-monospace, monospace; background: var(--hover); padding: 1px 4px; border-radius: 4px; }
+.lq-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 11px; line-height: 1.45; color: var(--text); margin-top: 4px; word-break: break-word; }
+.lq-title code { font-size: 10px; }
+.lq-badge { font-size: 7.5px; letter-spacing: .5px; text-transform: uppercase; padding: 1px 6px; border-radius: 8px; background: var(--hover); color: var(--muted); }
+.lq-badge.gate { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber); }
+.lq-badge.kind { background: color-mix(in srgb, var(--purple) 16%, transparent); color: var(--purple); }
+.lq-badge.warn { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+.lq-actions { display: flex; gap: 6px; margin-top: 8px; }
+.lq-btn { flex: 1; border: 1px solid var(--line); background: none; color: var(--text); font: 500 10px var(--sans); padding: 6px 8px; border-radius: 7px; cursor: pointer; transition: background .15s, color .15s, box-shadow .15s; }
+.lq-btn.approve { background: var(--ok); border-color: transparent; color: var(--on-accent); }
+.lq-btn.deny:hover { border-color: color-mix(in srgb, var(--bad) 55%, transparent); color: var(--bad); }
+.lq-btn.always:hover { border-color: color-mix(in srgb, var(--amber) 55%, transparent); color: var(--amber); }
+.lq-btn.armed { animation: lq-armed 1s ease-in-out infinite; }
+.lq-btn.approve.armed { background: color-mix(in srgb, var(--ok) 78%, var(--text)); }
+.lq-btn.deny.armed { background: var(--bad); color: var(--on-accent); border-color: transparent; }
+.lq-btn.always.armed { background: var(--amber); color: var(--on-accent); border-color: transparent; }
+.lq-btn:disabled { opacity: .45; cursor: default; animation: none; }
+@keyframes lq-armed { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--cyan) 35%, transparent); } }
+.lq-status { font-size: 9.5px; line-height: 1.5; margin: 7px 0 0; color: var(--muted); word-break: break-word; }
+.lq-status.busy { color: var(--cyan); }
+.lq-status.busy::after { content: " ···"; animation: live-pulse 1.2s ease-in-out infinite; }
+.lq-status.ok { color: var(--green); }
+.lq-status.bad { color: var(--bad); }
+.lq-status.dry { color: var(--purple); }
+.lq-empty { font-size: 10px; color: var(--muted); line-height: 1.6; margin: 6px 2px; }
+.lq-all { all: unset; cursor: pointer; margin-top: 6px; font-size: 9.5px; color: var(--cyan); text-align: center; padding: 4px; border-radius: 6px; }
+.lq-all:hover, .lq-all:focus-visible { background: var(--hover); }
+@media (prefers-reduced-motion: reduce) { .live-queue.ping, .lq-btn.armed { animation: none; } }
