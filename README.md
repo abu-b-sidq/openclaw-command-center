@@ -136,8 +136,9 @@ matching `approvals.files.gatedPattern` marks a request as waiting at an externa
 another approver).
 
 **Duplicate protection.** Before it sends, the server reads the approval's session from the gateway. It refuses
-with a 409 if a run is active, or if the session already holds an `approve <id>` / `deny <id>` message (from this
-app, a second instance, another tool, or someone typing in chat) while the file is still open. If the gateway can't
+with a 409 if a run is active or an input is queued, or if the session already holds an `approve <id>` /
+`deny <id>` message (from this app, a second instance, another tool, or someone typing into that session) while
+the file is still open. A decision typed into a different session isn't visible to this check. If the gateway can't
 be read, it returns a 503 and sends nothing. `force: true` on `POST approvals/resolve` bypasses the
 "already sent" check only, never an active run; the app's buttons don't set it. Concurrent requests for one
 approval are serialized, and `chat.send` gets a stable `idempotencyKey` derived from the session, the decision and

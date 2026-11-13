@@ -26,11 +26,22 @@ import {
   trimSessions,
   trimStatus,
 } from './trim.ts';
-import { clip, fail, isError, isLoading, log, obj, stamp, SwrCache, textOf, tsOf } from './util.ts';
+import {
+  arr,
+  clip,
+  fail,
+  isError,
+  isLoading,
+  log,
+  obj,
+  stamp,
+  SwrCache,
+  textOf,
+  tsOf,
+} from './util.ts';
 
 const MAX_INFLIGHT = 3;
 const HISTORY_LIMIT = 500;
-const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const FILE_ID_ESC = (id: string): string => id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** "approve <id>" or "deny <id>", word-bounded, wherever it sits in a user message. */
 const decisionRe = (id: string): RegExp =>
@@ -355,23 +366,32 @@ export class StateService {
   }
 
   /**
-   * Read a file approval's session: is a run active, and does its history already hold a decision for
-   * this id (our own template, or a plain typed "approve <id>" / "deny <id>")? Throws 503 if unreadable.
+   * Read a file approval's session: is a run active or queued, and does its history already hold a
+   * decision for this id (our own template, or a plain typed "approve <id>" / "deny <id>")? Throws 503
+   * if unreadable.
    */
   private async inspectSession(
     sessionKey: string,
     id: string,
   ): Promise<{ running: boolean; decisions: number; decisionAt?: number; truncated: boolean }> {
     try {
-      const [list, hist] = await Promise.all([
-        this.req('sessions.list', { search: sessionKey, limit: 5 }, 15000),
-        this.req('chat.history', { sessionKey, limit: HISTORY_LIMIT }, 15000),
-      ]);
-      const row = arr(obj(list)['sessions'])
-        .map(obj)
-        .find((x) => x['key'] === sessionKey);
-      const h = obj(hist);
+      const h = obj(await this.req('chat.history', { sessionKey, limit: HISTORY_LIMIT }, 15000));
+      // chat.history describes this exact session in sessionInfo. Gateways without it fall back to
+      // sessions.list, whose `search` is a substring match: approval 1 shares its prefix with 10-19, so
+      // the exact key can sit past the page. Fail closed then.
+      let info = obj(h['sessionInfo']);
+      if (info['key'] !== sessionKey) {
+        const list = obj(await this.req('sessions.list', { search: sessionKey, limit: 50 }, 15000));
+        const row = arr(list['sessions'])
+          .map(obj)
+          .find((x) => x['key'] === sessionKey);
+        if (!row && list['hasMore']) throw new Error('too many sessions match its key to find it');
+        info = row ?? {};
+      }
       const queued = obj(h['pendingInputs']);
+      // pendingInputs.total also counts cancelled and interrupted inputs, which never run on their own.
+      const queuedCount = queued['queuedCount'];
+      const waiting = typeof queuedCount === 'number' ? queuedCount : Number(queued['total']) || 0;
       const queuedText = arr(queued['items']).map((x) => textOf(x) || JSON.stringify(x));
       const re = decisionRe(id);
       let decisions = 0,
@@ -387,8 +407,11 @@ export class StateService {
       }
       return {
         running:
-          !!row &&
-          (!!row['hasActiveRun'] || row['status'] === 'running' || Number(queued['total']) > 0),
+          !!info['hasActiveRun'] ||
+          info['status'] === 'running' ||
+          arr(info['activeRunIds']).length > 0 ||
+          !!h['inFlightRun'] ||
+          waiting > 0,
         decisions,
         ...(decisions ? { decisionAt } : {}),
         truncated: !!h['hasMore'],

@@ -17,6 +17,13 @@ interface Fake {
   running: boolean;
   historyError: boolean;
   delay: number;
+  /** A gateway whose chat.history has no sessionInfo, so run state comes from sessions.list. */
+  legacy: boolean;
+  /** Other sessions whose keys contain ours (approval 1 vs 10-19), listed before it by sessions.list. */
+  others: number;
+  queuedCount: number;
+  pendingTotal: number;
+  calls: string[];
 }
 
 function setup(over: Partial<Fake> = {}, dryRun = false) {
@@ -43,17 +50,34 @@ function setup(over: Partial<Fake> = {}, dryRun = false) {
     running: false,
     historyError: false,
     delay: 0,
+    legacy: false,
+    others: 0,
+    queuedCount: 0,
+    pendingTotal: 0,
+    calls: [],
     ...over,
   };
   const request = async (method: string, params: any) => {
+    fake.calls.push(method);
     if (fake.delay) await new Promise((r) => setTimeout(r, fake.delay));
-    if (method === 'sessions.list')
-      return {
-        sessions: fake.running ? [{ key: KEY, status: 'running', hasActiveRun: true }] : [],
-      };
+    const row = { key: KEY, status: fake.running ? 'running' : 'done', hasActiveRun: fake.running };
+    if (method === 'sessions.list') {
+      const rows = [
+        ...Array.from({ length: fake.others }, (_, i) => ({ key: `${KEY}${i}`, status: 'done' })),
+        ...(fake.running ? [row] : []),
+      ];
+      return { sessions: rows.slice(0, params.limit), hasMore: rows.length > params.limit };
+    }
     if (method === 'chat.history') {
       if (fake.historyError) throw new Error('gateway down');
-      return { messages: fake.history, hasMore: false, pendingInputs: { items: [], total: 0 } };
+      return {
+        messages: fake.history,
+        hasMore: false,
+        pendingInputs: { items: [], total: fake.pendingTotal, queuedCount: fake.queuedCount },
+        ...(fake.legacy
+          ? {}
+          : { sessionInfo: { ...row, activeRunIds: fake.running ? ['run-1'] : [] } }),
+      };
     }
     if (method === 'chat.send') {
       fake.sends.push(params);
@@ -130,6 +154,39 @@ test('an active run is refused with 409, even with force', async () => {
   assert.equal(await status(approve(state)), 409);
   assert.equal(await status(approve(state, true)), 409);
   assert.equal(fake.sends.length, 0);
+});
+
+test('the run check reads the exact session, not a search that other ids can crowd out', async () => {
+  const { fake, state } = setup({ running: true, others: 60 });
+  assert.equal(await status(approve(state)), 409);
+  assert.equal(await status(approve(state, true)), 409);
+  assert.equal(fake.sends.length, 0);
+  assert.equal(fake.calls.includes('sessions.list'), false);
+});
+
+test('without sessionInfo, the exact key is found among sessions sharing its prefix', async () => {
+  const { fake, state } = setup({ legacy: true, running: true, others: 3 });
+  assert.equal(await status(approve(state, true)), 409);
+  assert.equal(fake.sends.length, 0);
+  const idle = setup({ legacy: true, others: 3 });
+  assert.equal(await status(approve(idle.state)), 200);
+});
+
+test('without sessionInfo, a key that may sit past the search page fails closed', async () => {
+  for (const running of [true, false]) {
+    const { fake, state } = setup({ legacy: true, running, others: 60 });
+    assert.equal(await status(approve(state, true)), 503);
+    assert.equal(fake.sends.length, 0);
+  }
+});
+
+test('a queued input counts as a run in progress; cancelled ones do not', async () => {
+  const queued = setup({ queuedCount: 1, pendingTotal: 1 });
+  assert.equal(await status(approve(queued.state, true)), 409);
+  assert.equal(queued.fake.sends.length, 0);
+  const cancelled = setup({ queuedCount: 0, pendingTotal: 2 });
+  assert.equal(await status(approve(cancelled.state)), 200);
+  assert.equal(cancelled.fake.sends.length, 1);
 });
 
 test('a gateway read error fails closed with 503 and sends nothing', async () => {
