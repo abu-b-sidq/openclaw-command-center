@@ -44,8 +44,9 @@ export class StaticFiles {
       return null;
     }
     if (!this.index || this.index.mtime !== mtime) {
+      // The Angular build writes a self-closing <base href="/"/>.
       const html = readFileSync(file, 'utf8').replace(
-        /<base href="[^"]*">/,
+        /<base href="[^"]*"\s*\/?>/,
         `<base href="${this.basePath}">`,
       );
       this.index = { mtime, html };
