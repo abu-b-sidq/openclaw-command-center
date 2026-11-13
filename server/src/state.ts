@@ -1,5 +1,5 @@
 // The live snapshot behind GET /api/state, and approval decisions (POST /api/approvals/resolve).
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import type {
   ApprovalItem,
   ApprovalKind,
@@ -29,6 +29,19 @@ import {
 import { clip, fail, isError, isLoading, log, obj, stamp, SwrCache, textOf, tsOf } from './util.ts';
 
 const MAX_INFLIGHT = 3;
+const HISTORY_LIMIT = 500;
+const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+const FILE_ID_ESC = (id: string): string => id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** "approve <id>" or "deny <id>", word-bounded, wherever it sits in a user message. */
+const decisionRe = (id: string): RegExp =>
+  new RegExp(`(?<![\\w-])(?:approve|deny)\\s+${FILE_ID_ESC(id)}(?![\\w.-])`, 'i');
+/**
+ * chat.send dedupes on idempotencyKey (the same key returns in_flight / ok instead of starting a second
+ * run), so the key is derived from the session, decision and attempt: a retry of the same attempt is
+ * absorbed, a deliberate forced resend bumps the attempt and goes through.
+ */
+const idempotencyKey = (a: StoredAction): string =>
+  `cc-approval:${a.sessionKey}:${a.decision}:${a.attempt ?? 1}`;
 const NATIVE_ID_RE = /^[A-Za-z0-9._:-]{1,128}$/;
 const VERDICT: Record<Decision, string> = {
   'allow-once': 'Allowed once',
@@ -46,6 +59,8 @@ export class StateService {
   private readonly cfg: Config;
   private readonly gw: Gateway;
   private readonly assistantName: () => string;
+  /** Keys with a decision in progress, reserved synchronously so a second request can't slip in during an await. */
+  private readonly reserved = new Set<string>();
 
   constructor(cfg: Config, gw: Gateway, assistantName: () => string) {
     this.cfg = cfg;
@@ -199,10 +214,16 @@ export class StateService {
       throw fail(400, 'unknown decision');
     const key = `${kind}:${id}`,
       prev = this.actions.get(key);
-    if (prev && LIVE.has(prev.state)) throw fail(409, `${id} is already being handled`);
-    return kind === 'file'
-      ? this.resolveFile(id, decision, key, prev, !!b.force)
-      : this.resolveNativeItem(kind, id, decision, key);
+    if ((prev && LIVE.has(prev.state)) || this.reserved.has(key))
+      throw fail(409, `${id} is already being handled`);
+    this.reserved.add(key);
+    try {
+      return kind === 'file'
+        ? await this.resolveFile(id, decision, key, !!b.force)
+        : await this.resolveNativeItem(kind, id, decision, key);
+    } finally {
+      this.reserved.delete(key);
+    }
   }
 
   private async resolveNativeItem(
@@ -259,7 +280,6 @@ export class StateService {
     id: string,
     decision: Decision,
     key: string,
-    prev: StoredAction | undefined,
     force: boolean,
   ): Promise<ResolveResponse> {
     const f = this.cfg.approvals.files;
@@ -270,6 +290,28 @@ export class StateService {
     const item = this.files.read(id);
     if (!item) throw fail(404, `No approval ${id}`);
     if (!item.open) throw fail(409, `${id} is already ${item.statusLine || item.status}`);
+    const sessionKey = `${f.sessionKeyPrefix}${id}`;
+    // Anything else can write into this session (a second server, a bridge, someone typing in chat), so
+    // look at the session itself before sending. Fails closed; everything after the await is synchronous.
+    const seen = await this.inspectSession(sessionKey, id);
+    if (seen.running)
+      throw fail(
+        409,
+        `The session for ${id} has a run in progress. Wait for it to finish and read its reply first.`,
+      );
+    if (!force) {
+      if (seen.decisionAt !== undefined)
+        throw fail(
+          409,
+          `A decision for ${id} was already sent to its session ${seen.decisionAt ? `at ${stamp(this.cfg.ui.timeZone, seen.decisionAt)}` : 'earlier'}, but the file still says ${item.statusLine || item.status}. Read the session's reply before sending another.`,
+        );
+      if (seen.truncated)
+        throw fail(
+          409,
+          `The session for ${id} is too long to check for an earlier decision. Look at it in the Control UI first.`,
+        );
+    }
+    const prev = this.actions.get(key);
     if (
       prev?.state === 'done' &&
       prev.decision === 'approve' &&
@@ -302,13 +344,61 @@ export class StateService {
       at: Date.now(),
       doneAt: null,
       title: item.title,
-      sessionKey: `${f.sessionKeyPrefix}${id}`,
+      sessionKey,
       reply: null,
       error: null,
       message,
+      attempt: Math.max(seen.decisions, prev?.attempt ?? 0) + 1,
     });
     log('approval', 'file', id, decision, this.cfg.server.dryRun ? '(dry run)' : '');
     return this.send(a);
+  }
+
+  /**
+   * Read a file approval's session: is a run active, and does its history already hold a decision for
+   * this id (our own template, or a plain typed "approve <id>" / "deny <id>")? Throws 503 if unreadable.
+   */
+  private async inspectSession(
+    sessionKey: string,
+    id: string,
+  ): Promise<{ running: boolean; decisions: number; decisionAt?: number; truncated: boolean }> {
+    try {
+      const [list, hist] = await Promise.all([
+        this.req('sessions.list', { search: sessionKey, limit: 5 }, 15000),
+        this.req('chat.history', { sessionKey, limit: HISTORY_LIMIT }, 15000),
+      ]);
+      const row = arr(obj(list)['sessions'])
+        .map(obj)
+        .find((x) => x['key'] === sessionKey);
+      const h = obj(hist);
+      const queued = obj(h['pendingInputs']);
+      const queuedText = arr(queued['items']).map((x) => textOf(x) || JSON.stringify(x));
+      const re = decisionRe(id);
+      let decisions = 0,
+        decisionAt: number | undefined;
+      for (const m of [
+        ...arr(h['messages']),
+        ...queuedText.map((t) => ({ role: 'user', content: t })),
+      ]) {
+        const msg = obj(m);
+        if (msg['role'] !== 'user' || !re.test(textOf(m))) continue;
+        decisions++;
+        decisionAt = Math.max(decisionAt ?? 0, tsOf(msg['timestamp']));
+      }
+      return {
+        running:
+          !!row &&
+          (!!row['hasActiveRun'] || row['status'] === 'running' || Number(queued['total']) > 0),
+        decisions,
+        ...(decisions ? { decisionAt } : {}),
+        truncated: !!h['hasMore'],
+      };
+    } catch (e) {
+      throw fail(
+        503,
+        `Couldn't read the session for ${id} from the gateway: ${(e as Error).message}`,
+      );
+    }
   }
 
   private async send(a: StoredAction): Promise<ResolveResponse> {
@@ -323,7 +413,7 @@ export class StateService {
       const r = obj(
         await conn.request(
           'chat.send',
-          { sessionKey: a.sessionKey, message: a.message, idempotencyKey: randomUUID() },
+          { sessionKey: a.sessionKey, message: a.message, idempotencyKey: idempotencyKey(a) },
           30000,
         ),
       );

@@ -10,6 +10,8 @@ export interface StoredAction extends ActionRecord {
   message?: string;
   runId?: string | null;
   checkedAt?: number;
+  /** Which send this is for the approval (1 first, +1 per forced resend); part of the idempotency key. */
+  attempt?: number;
 }
 
 export class ActionStore {

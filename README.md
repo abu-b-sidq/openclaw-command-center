@@ -135,6 +135,14 @@ id), worded by the `approveMessage` / `denyMessage` templates; your agent's own 
 matching `approvals.files.gatedPattern` marks a request as waiting at an external gate (a change board,
 another approver).
 
+**Duplicate protection.** Before it sends, the server reads the approval's session from the gateway. It refuses
+with a 409 if a run is active, or if the session already holds an `approve <id>` / `deny <id>` message (from this
+app, a second instance, another tool, or someone typing in chat) while the file is still open. If the gateway can't
+be read, it returns a 503 and sends nothing. `force: true` on `POST approvals/resolve` bypasses the
+"already sent" check only, never an active run; the app's buttons don't set it. Concurrent requests for one
+approval are serialized, and `chat.send` gets a stable `idempotencyKey` derived from the session, the decision and
+the attempt number.
+
 ## Deploying
 
 The server serves the built app and the API from one port, so any reverse proxy works.
@@ -175,7 +183,7 @@ All JSON, under `<basePath>api/`. Everything except `health`, `bootstrap` and `a
 | `GET bootstrap`                                                | Who the assistant is, which features are on, whether you're signed in.    |
 | `POST auth/login`, `POST auth/logout`                          | Password sign-in.                                                         |
 | `GET state?sig=`                                               | The live snapshot. Approval items are omitted while `sig` still matches.  |
-| `POST approvals/resolve`                                       | `{kind, id, decision}`: decide an approval.                               |
+| `POST approvals/resolve`                                       | `{kind, id, decision, force?}`: decide an approval.                       |
 | `POST chat`                                                    | `{text}`: a typed turn to the assistant session; returns its answer.      |
 | `POST talk/session`, `talk/offer`, `talk/events`, `talk/close` | Start a voice call, relay its WebRTC offer, long-poll its events, end it. |
 
