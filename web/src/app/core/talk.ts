@@ -4,6 +4,7 @@ import type {
   Reply,
   TalkEvent,
   TalkEventsResponse,
+  TalkOfferResponse,
   TalkSession,
 } from '../../../../shared/api';
 import { Api } from './api';
@@ -450,21 +451,7 @@ export class Talk {
       };
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      const offerUrl = new URL(
-        sess.offerUrl || 'https://api.openai.com/v1/realtime/calls',
-        location.origin,
-      ).toString();
-      const r = await fetch(offerUrl, {
-        method: 'POST',
-        body: offer.sdp,
-        headers: {
-          ...(sess.offerHeaders || {}),
-          Authorization: `Bearer ${sess.clientSecret}`,
-          'Content-Type': 'application/sdp',
-        },
-      });
-      if (!r.ok) throw new Error(`WebRTC setup failed (${r.status})`);
-      const answer = await r.text();
+      const answer = await this.exchange(sess, offer.sdp ?? '');
       if (!this.pc) return;
       await pc.setRemoteDescription({ type: 'answer', sdp: answer });
       void this.pollEvents(sess.voiceSessionId);
@@ -479,6 +466,28 @@ export class Talk {
           : `Talk failed: ${(e as Error).message || e}`,
       );
     }
+  }
+
+  /** SDP offer → answer: through our server when the gateway's offer route is relative to it, else direct. */
+  private async exchange(sess: TalkSession, sdp: string): Promise<string> {
+    if (sess.offerRelay)
+      return (
+        await this.api.post<TalkOfferResponse>('talk/offer', {
+          voiceSessionId: sess.voiceSessionId,
+          sdp,
+        })
+      ).sdp;
+    const r = await fetch(sess.offerUrl || 'https://api.openai.com/v1/realtime/calls', {
+      method: 'POST',
+      body: sdp,
+      headers: {
+        ...(sess.offerHeaders || {}),
+        Authorization: `Bearer ${sess.clientSecret}`,
+        'Content-Type': 'application/sdp',
+      },
+    });
+    if (!r.ok) throw new Error(`WebRTC setup failed (${r.status})`);
+    return r.text();
   }
 
   private cleanup(): void {

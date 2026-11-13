@@ -332,9 +332,12 @@ export interface TalkSession {
   provider: string | null;
   transport: string;
   voiceSessionId: string;
+  /** Empty when offerRelay is set: the server keeps the gateway's single-use broker token. */
   clientSecret: string;
   offerUrl: string | null;
   offerHeaders: Record<string, string> | null;
+  /** Post the SDP offer to POST api/talk/offer instead: the gateway's offer route is relative to the gateway. */
+  offerRelay: boolean;
   model: string | null;
   voice: string | null;
   expiresAt: number | string | null;
@@ -345,6 +348,10 @@ export interface TalkEvent {
   type?: string;
   payload?: Record<string, unknown>;
   [key: string]: unknown;
+}
+
+export interface TalkOfferResponse {
+  sdp: string;
 }
 
 export interface TalkEventsResponse {

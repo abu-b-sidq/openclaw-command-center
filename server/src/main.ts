@@ -141,7 +141,7 @@ function main(): void {
             calendarUrl: null,
           },
       features: {
-        talk: cfg.talk.enabled,
+        talk: cfg.talk.enabled && !cfg.server.dryRun,
         nativeApprovals: cfg.approvals.native.enabled,
         fileApprovals: cfg.approvals.files.enabled,
         calendar: google.enabled && google.calendar,
@@ -195,6 +195,11 @@ function main(): void {
       method: 'POST',
       handle: (_req, _res, b) =>
         talk.events(String(b['voiceSessionId'] ?? ''), Number(b['after']) || 0),
+    },
+    'talk/offer': {
+      method: 'POST',
+      handle: (_req, _res, b) =>
+        talk.offer(String(b['voiceSessionId'] ?? ''), String(b['sdp'] ?? '')),
     },
     'talk/close': {
       method: 'POST',

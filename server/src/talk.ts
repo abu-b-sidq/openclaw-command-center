@@ -1,12 +1,19 @@
 // Realtime Talk, gateway-controlled: the gateway owns the provider sideband, turns and agent consults; the browser
-// gets only the short-lived provider client secret from talk.client.create and streams audio over WebRTC.
+// streams audio over WebRTC straight to the provider. When the gateway answers talk.client.create with an offer
+// route relative to itself (gateway-control-v1), this server relays the browser's SDP offer there, so the browser
+// never needs to reach the gateway and never sees the single-use broker token.
 // Gateway talk.event frames for each voice session are buffered here and long-polled by the browser.
 // Typed turns go to the same agent session with chat.send.
 import { randomUUID } from 'node:crypto';
-import type { ChatResponse, TalkEventsResponse, TalkSession } from '../../shared/api.ts';
+import type {
+  ChatResponse,
+  TalkEventsResponse,
+  TalkOfferResponse,
+  TalkSession,
+} from '../../shared/api.ts';
 import type { Config } from './config.ts';
 import { waitForRun, type Frame, type Gateway } from './gateway.ts';
-import { fail, log, obj, str, textOf } from './util.ts';
+import { clip, fail, log, obj, str, textOf } from './util.ts';
 
 const MAX_EVENTS = 300;
 const SESSION_TTL_MS = 6 * 3600e3;
@@ -16,16 +23,23 @@ interface VoiceSession {
   events: { seq: number; ev: Record<string, unknown> }[];
   seq: number;
   waiters: Set<() => void>;
+  /** A gateway-relative offer route waiting for the browser's SDP (single use). */
+  offer: { path: string; secret: string; headers: Record<string, string> } | null;
 }
 
 export class Talk {
   private readonly sessions = new Map<string, VoiceSession>();
   private readonly cfg: Config;
   private readonly gw: Gateway;
+  /** The gateway's HTTP origin, for its relative offer route: ws://host:port → http://host:port. */
+  private readonly gatewayHttp: string;
 
   constructor(cfg: Config, gw: Gateway) {
     this.cfg = cfg;
     this.gw = gw;
+    const u = new URL(cfg.gateway.url);
+    u.protocol = u.protocol === 'wss:' ? 'https:' : 'http:';
+    this.gatewayHttp = u.origin;
     gw.onEvent((f) => this.onEvent(f));
   }
 
@@ -46,6 +60,7 @@ export class Talk {
 
   async open(): Promise<TalkSession> {
     if (!this.cfg.talk.enabled) throw fail(404, 'Talk is turned off');
+    if (this.cfg.server.dryRun) throw fail(409, 'Dry run: voice is off');
     for (const [id, s] of this.sessions)
       if (Date.now() - s.created > SESSION_TTL_MS) this.sessions.delete(id);
     if (this.sessions.size >= this.cfg.talk.maxLive)
@@ -68,19 +83,57 @@ export class Talk {
     const id = String(s['voiceSessionId'] ?? '');
     if (!id || typeof s['clientSecret'] !== 'string')
       throw fail(502, 'The gateway returned an incomplete Talk session');
-    this.sessions.set(id, { created: Date.now(), events: [], seq: 0, waiters: new Set() });
-    log('talk: session', id, s['provider'], s['model'], s['voice']);
+    const offerUrl = str(s['offerUrl']);
+    const headers = (s['offerHeaders'] as Record<string, string>) ?? null;
+    const relay = !!offerUrl?.startsWith('/');
+    this.sessions.set(id, {
+      created: Date.now(),
+      events: [],
+      seq: 0,
+      waiters: new Set(),
+      offer: relay ? { path: offerUrl!, secret: s['clientSecret'], headers: headers ?? {} } : null,
+    });
+    log('talk: session', id, s['provider'], s['model'], s['voice'], relay ? '(relayed offer)' : '');
     return {
       provider: str(s['provider']),
       transport: 'webrtc',
       voiceSessionId: id,
-      clientSecret: s['clientSecret'],
-      offerUrl: str(s['offerUrl']),
-      offerHeaders: (s['offerHeaders'] as Record<string, string>) ?? null,
+      clientSecret: relay ? '' : s['clientSecret'],
+      offerUrl: relay ? null : offerUrl,
+      offerHeaders: relay ? null : headers,
+      offerRelay: relay,
       model: str(s['model']),
       voice: str(s['voice']),
       expiresAt: (s['expiresAt'] as number | string) ?? null,
     };
+  }
+
+  /** Relays the browser's SDP offer to the gateway's offer route and returns the answer SDP. */
+  async offer(voiceSessionId: string, sdp: string): Promise<TalkOfferResponse> {
+    const sess = this.sessions.get(voiceSessionId);
+    if (!sess?.offer) throw fail(404, 'No Talk offer is pending for that session');
+    if (!/^v=0\r?\n/.test(sdp)) throw fail(400, 'Not an SDP offer');
+    const o = sess.offer;
+    sess.offer = null; // the broker token is single-use
+    let r: Response;
+    try {
+      r = await fetch(new URL(o.path, this.gatewayHttp), {
+        method: 'POST',
+        headers: {
+          ...o.headers,
+          authorization: `Bearer ${o.secret}`,
+          'content-type': 'application/sdp',
+        },
+        body: sdp,
+        signal: AbortSignal.timeout(30000),
+      });
+    } catch (e) {
+      throw fail(502, `Couldn't reach the gateway's Talk offer route: ${(e as Error).message}`);
+    }
+    const text = await r.text();
+    if (!r.ok)
+      throw fail(502, `The gateway refused the Talk offer (${r.status}): ${clip(text, 160)}`);
+    return { sdp: text };
   }
 
   /** Long-poll: events after `after`, waiting up to 25 s for new ones. */

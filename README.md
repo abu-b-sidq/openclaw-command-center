@@ -17,7 +17,8 @@ assistant out loud or type to it.
 - Optional calendar and inbox panels through the `gog` CLI. Light, dark and system themes. Works on a phone.
 
 The browser never sees your gateway token. A small Node server holds the gateway connection and hands the
-browser a trimmed, read-only snapshot, plus a short-lived client secret when you start a voice call.
+browser a trimmed, read-only snapshot. For a voice call it relays the browser's WebRTC offer to the gateway,
+so the browser doesn't need to reach the gateway at all; the audio itself goes straight to the provider.
 
 ```
 browser (Angular)  ──HTTPS──▶  command center server (Node)  ──WebSocket──▶  OpenClaw gateway
@@ -168,15 +169,15 @@ The repo is one npm package:
 
 All JSON, under `<basePath>api/`. Everything except `health`, `bootstrap` and `auth/*` needs a session.
 
-| Route                                            |                                                                          |
-| ------------------------------------------------ | ------------------------------------------------------------------------ |
-| `GET health`                                     | Liveness and gateway connection.                                         |
-| `GET bootstrap`                                  | Who the assistant is, which features are on, whether you're signed in.   |
-| `POST auth/login`, `POST auth/logout`            | Password sign-in.                                                        |
-| `GET state?sig=`                                 | The live snapshot. Approval items are omitted while `sig` still matches. |
-| `POST approvals/resolve`                         | `{kind, id, decision}`: decide an approval.                              |
-| `POST chat`                                      | `{text}`: a typed turn to the assistant session; returns its answer.     |
-| `POST talk/session`, `talk/events`, `talk/close` | Start a realtime voice call, long-poll its events, end it.               |
+| Route                                                          |                                                                           |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `GET health`                                                   | Liveness and gateway connection.                                          |
+| `GET bootstrap`                                                | Who the assistant is, which features are on, whether you're signed in.    |
+| `POST auth/login`, `POST auth/logout`                          | Password sign-in.                                                         |
+| `GET state?sig=`                                               | The live snapshot. Approval items are omitted while `sig` still matches.  |
+| `POST approvals/resolve`                                       | `{kind, id, decision}`: decide an approval.                               |
+| `POST chat`                                                    | `{text}`: a typed turn to the assistant session; returns its answer.      |
+| `POST talk/session`, `talk/offer`, `talk/events`, `talk/close` | Start a voice call, relay its WebRTC offer, long-poll its events, end it. |
 
 ## License
 
