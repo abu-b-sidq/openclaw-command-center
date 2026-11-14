@@ -35,7 +35,10 @@ interface Fact {
   selector: 'cc-drawer',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ApprovalRow, Icon],
-  host: { '(document:keydown.escape)': 'drawer.close()' },
+  host: {
+    '(document:keydown.escape)': 'drawer.close()',
+    '(click)': 'copyCode($event)',
+  },
   template: `
     <div class="lv-drawer" [class.open]="shown()" [hidden]="!mounted()">
       <div class="lv-scrim" (click)="drawer.close()"></div>
@@ -211,6 +214,16 @@ interface Fact {
   `,
 })
 export class DrawerPanel {
+  protected copyCode(e: Event): void {
+    const t = e.target as HTMLElement | null;
+    if (!t?.classList?.contains('lv-code-copy')) return;
+    const text = t.closest('pre')?.querySelector('code')?.textContent ?? '';
+    void navigator.clipboard?.writeText(text).then(() => {
+      t.textContent = 'Copied';
+      setTimeout(() => (t.textContent = 'Copy'), 1500);
+    });
+  }
+
   protected readonly drawer = inject(Drawer);
   protected readonly store = inject(StateStore);
   protected readonly session = inject(Session);

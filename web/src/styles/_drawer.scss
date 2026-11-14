@@ -29,7 +29,12 @@
 .lv-md li { margin: 2px 0; }
 .lv-md h4 { font-size: 11px; letter-spacing: 0; text-transform: none; color: var(--text); margin: 10px 0 4px; }
 .lv-md code, .lv-facts code, .lv-note code, .lv-title code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .88em; background: var(--hover); padding: 1px 4px; border-radius: 4px; }
-.lv-md pre, .lv-block pre, .lv-raw pre { font: 10px/1.55 "JetBrains Mono", ui-monospace, monospace; background: var(--input-bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow: auto; white-space: pre-wrap; word-break: break-word; color: var(--text); margin: 0 0 8px; }
+.lv-md pre, .lv-block pre, .lv-raw pre { font: 10.5px/1.6 "JetBrains Mono", ui-monospace, monospace; background: #0f1416; border: 0; border-radius: 10px; padding: 0; overflow: hidden; color: #d7e0e2; margin: 0 0 10px; }
+.lv-raw pre { padding: 10px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.lv-md pre code { display: block; padding: 10px 12px; overflow-x: auto; white-space: pre; background: none; font: inherit; border-radius: 0; }
+.lv-code-head { display: flex; align-items: center; justify-content: space-between; padding: 5px 8px 5px 12px; background: #ffffff0f; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: #8b999c; user-select: none; }
+.lv-code-copy { cursor: pointer; padding: 2px 8px; border-radius: 6px; letter-spacing: 0; text-transform: none; }
+.lv-code-copy:hover { background: #ffffff1f; color: #fff; }
 .lv-md a, .lv-facts a { color: var(--cyan); }
 .lv-md table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 10.5px; margin: 0 0 8px; }
 .lv-md th, .lv-md td { border: 1px solid var(--line); padding: 4px 7px; text-align: left; vertical-align: top; }

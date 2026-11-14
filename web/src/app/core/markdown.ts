@@ -41,11 +41,15 @@ function table(rows: string[]): string {
   return `<table>${head ? `<thead>${tr(head, 'th')}</thead>` : ''}<tbody>${body.map((r) => tr(r, 'td')).join('')}</tbody></table>`;
 }
 
+const codeBox = (lang: string, body: string) =>
+  `<pre><span class="lv-code-head"><span class="lv-code-lang">${esc(lang || 'code')}</span><span class="lv-code-copy">Copy</span></span><code>${esc(body)}</code></pre>`;
+
 export function markdown(src: unknown): string {
   let out = '';
   let list: 'ul' | 'ol' | null = null;
   let para: string[] = [];
   let code: string[] | null = null;
+  let lang = '';
   const flush = () => {
     if (para.length) {
       out += `<p>${para.map(inline).join('<br>')}</p>`;
@@ -65,7 +69,7 @@ export function markdown(src: unknown): string {
     const raw = lines[i]!;
     if (code !== null) {
       if (/^\s*```/.test(raw)) {
-        out += `<pre>${esc(code.join('\n'))}</pre>`;
+        out += codeBox(lang, code.join('\n'));
         code = null;
       } else code.push(raw);
       continue;
@@ -73,6 +77,7 @@ export function markdown(src: unknown): string {
     if (/^\s*```/.test(raw)) {
       flush();
       close();
+      lang = (raw.match(/^\s*```\s*([\w+#.-]+)/)?.[1] ?? '').toLowerCase();
       code = [];
       continue;
     }
@@ -124,7 +129,7 @@ export function markdown(src: unknown): string {
     close();
     para.push(l);
   }
-  if (code !== null) out += `<pre>${esc((code as string[]).join('\n'))}</pre>`;
+  if (code !== null) out += codeBox(lang, (code as string[]).join('\n'));
   flush();
   close();
   return out;
