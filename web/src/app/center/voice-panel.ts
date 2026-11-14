@@ -4,6 +4,7 @@ import {
   computed,
   ElementRef,
   inject,
+  signal,
   viewChild,
 } from '@angular/core';
 import { Session } from '../core/session';
@@ -18,7 +19,13 @@ type VoiceState = 'listening' | 'thinking' | 'checking' | 'speaking';
   selector: 'article[ccVoicePanel]',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [Icon, Wave],
-  host: { class: 'cc-panel cc-voice', 'data-panel': 'voice' },
+  host: {
+    class: 'cc-panel cc-voice',
+    'data-panel': 'voice',
+    '[class.is-full]': 'full()',
+    '[attr.data-mood]': 'current() ?? \'idle\'',
+    '(document:fullscreenchange)': 'sync()',
+  },
   template: `
     <button
       type="button"
@@ -29,12 +36,24 @@ type VoiceState = 'listening' | 'thinking' | 'checking' | 'speaking';
       [title]="talkOn() ? '' : 'Voice is turned off for this command center'"
       (click)="talk.toggle()"
     >
-      <cc-icon name="mic" />
+      <span class="vo-ring vo-ring-a"></span><span class="vo-ring vo-ring-b"></span
+      ><span class="vo-core"><cc-icon name="mic" /></span>
     </button>
     <div class="cc-voice-main">
       <h2>
         <span>{{ name() }} · voice</span
-        ><small>{{ talkOn() ? talk.stateLabel() : 'Typed only' }}</small>
+        ><small class="vo-state">{{ talkOn() ? talk.stateLabel() : 'Typed only' }}</small>
+        @if (canFull) {
+          <button
+            type="button"
+            class="vo-full"
+            [attr.aria-label]="full() ? 'Exit full screen' : 'Full screen'"
+            [title]="full() ? 'Exit full screen (Esc)' : 'Full screen'"
+            (click)="toggleFull()"
+          >
+            <cc-icon [name]="full() ? 'shrink' : 'expand'" />
+          </button>
+        }
       </h2>
       <cc-wave class="cc-wave" [count]="72" [shaped]="true" />
       <p class="cc-said" aria-live="polite">
@@ -92,6 +111,19 @@ export class VoicePanel {
     const m = this.talk.mood();
     return m === 'idle' ? null : m;
   });
+
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  protected readonly full = signal(false);
+  protected readonly canFull = typeof document !== 'undefined' && !!document.fullscreenEnabled;
+
+  protected sync(): void {
+    this.full.set(document.fullscreenElement === this.host.nativeElement);
+  }
+
+  protected toggleFull(): void {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void this.host.nativeElement.requestFullscreen().catch(() => undefined);
+  }
 
   protected send(e: Event): void {
     e.preventDefault();

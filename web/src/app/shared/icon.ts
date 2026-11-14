@@ -30,7 +30,9 @@ export type IconName =
   | 'phone'
   | 'close'
   | 'back'
-  | 'external';
+  | 'external'
+  | 'expand'
+  | 'shrink';
 
 /** Line icons drawn on a 24×24 grid with a 1.5 stroke. Purely decorative: always aria-hidden. */
 @Component({
@@ -159,6 +161,12 @@ export type IconName =
         }
         @case ('back') {
           <svg:path d="m14 6-6 6 6 6" />
+        }
+        @case ('expand') {
+          <svg:path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+        }
+        @case ('shrink') {
+          <svg:path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
         }
         @case ('external') {
           <svg:path

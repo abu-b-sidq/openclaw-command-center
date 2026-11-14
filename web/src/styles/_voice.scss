@@ -1,18 +1,36 @@
 // ---------- voice deck ----------
 .cc-voice { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 12px 16px; }
-.cc-voice-btn { width: 86px; height: 86px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--purple) 30%, transparent); background: radial-gradient(circle at 35% 30%, var(--panel), color-mix(in srgb, var(--purple) 12%, var(--panel))); display: grid; place-items: center; cursor: pointer; color: var(--purple); box-shadow: 0 8px 24px color-mix(in srgb, var(--purple) 16%, transparent), inset 0 1px 0 #fff6; transition: transform .15s, box-shadow .2s; }
-.cc-voice-btn .icon { width: 30px; height: 30px; stroke-width: 1.3; }
+.cc-voice-btn { --mc: var(--purple); position: relative; width: 86px; height: 86px; padding: 0; border: 0; background: none; border-radius: 50%; display: grid; place-items: center; cursor: pointer; color: var(--mc); transition: transform .15s; }
+.cc-voice-btn .vo-core { position: relative; width: 74%; height: 74%; border-radius: 50%; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--mc) 35%, transparent); background: radial-gradient(circle at 35% 28%, var(--panel), color-mix(in srgb, var(--mc) 22%, var(--panel)) 75%); box-shadow: 0 8px 24px color-mix(in srgb, var(--mc) 22%, transparent), inset 0 1px 0 #fff6, 0 0 calc(var(--level, 0) * 36px) color-mix(in srgb, var(--mc) 55%, transparent); transform: scale(calc(1 + var(--level, 0) * .12)); transition: transform .08s; }
+.cc-voice-btn .icon { width: 34%; height: 34%; stroke-width: 1.3; }
+.cc-voice-btn .vo-ring { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--mc) 45%, transparent); opacity: 0; pointer-events: none; }
 .cc-voice-btn:hover { transform: scale(1.03); }
+.cc-voice-btn:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
 .cc-voice-btn:disabled { opacity: .5; cursor: default; transform: none; }
+// Mood colours the orb: listening cyan, thinking amber, checking green, speaking purple.
+.cc-voice[data-mood="listening"] { --vc: var(--cyan); }
+.cc-voice[data-mood="thinking"] { --vc: var(--amber); }
+.cc-voice[data-mood="checking"] { --vc: var(--green); }
+.cc-voice[data-mood="speaking"] { --vc: var(--purple); }
+.cc-voice { --vc: var(--purple); }
+.cc-voice .cc-voice-btn { --mc: var(--vc); }
+.cc-voice[data-mood="listening"] .vo-ring-a, .cc-voice[data-mood="speaking"] .vo-ring-a { animation: vo-ripple 2.4s ease-out infinite; }
+.cc-voice[data-mood="listening"] .vo-ring-b, .cc-voice[data-mood="speaking"] .vo-ring-b { animation: vo-ripple 2.4s ease-out 1.2s infinite; }
+.cc-voice[data-mood="thinking"] .vo-ring-a, .cc-voice[data-mood="checking"] .vo-ring-a { opacity: .9; border-style: dashed; animation: cc-spin 3.5s linear infinite; }
+@keyframes vo-ripple { from { transform: scale(.78); opacity: .8; } to { transform: scale(1.3); opacity: 0; } }
+.cc-voice .vo-state { color: var(--vc); transition: color .3s; }
+.vo-full { margin-left: auto; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; color: var(--muted); border: 1px solid var(--line); background: var(--panel-2); padding: 0; }
+.vo-full:hover { color: var(--cyan); border-color: color-mix(in srgb, var(--cyan) 45%, transparent); }
+.vo-full .icon { width: 14px; height: 14px; }
 .mic-button[aria-pressed="true"] { color: var(--red) !important; border-color: color-mix(in srgb, var(--red) 40%, transparent) !important; box-shadow: 0 0 0 calc(4px + var(--level, 0) * 14px) color-mix(in srgb, var(--red) 14%, transparent) !important; }
 .cc-voice-main { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .cc-voice-main h2 { margin: 0; display: flex; align-items: baseline; gap: 10px; font: 600 13px var(--sans); letter-spacing: 3px; text-transform: uppercase; }
 .cc-voice-main h2 small { font: 500 9.5px var(--mono); letter-spacing: 1.5px; text-transform: uppercase; color: var(--cyan); }
 .cc-wave { display: flex; align-items: center; gap: 3px; height: 46px; overflow: hidden; }
-.cc-wave i { flex: 1; min-width: 2px; max-width: 5px; border-radius: 3px; height: calc(4px + var(--k) * (5px + var(--level, 0) * 56px)); background: linear-gradient(var(--purple), var(--cyan)); opacity: .55; transition: height .09s; animation: cc-idle 2.8s ease-in-out infinite; animation-delay: calc(var(--d) * -1s); }
+.cc-wave i { flex: 1; min-width: 2px; max-width: 5px; border-radius: 3px; height: calc(4px + var(--k) * (5px + var(--level, 0) * 56px)); background: linear-gradient(var(--vc, var(--purple)), var(--cyan)); opacity: .55; transition: height .09s; animation: cc-idle 2.8s ease-in-out infinite; animation-delay: calc(var(--d) * -1s); }
 body.talk-live .cc-wave i { opacity: .95; animation: none; }
 @keyframes cc-idle { 50% { transform: scaleY(1.6); } }
-.cc-said { margin: 0; font-size: 14px; line-height: 1.35; min-height: 2.7em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cc-said { border-left: 2px solid color-mix(in srgb, var(--vc, var(--purple)) 55%, transparent); padding-left: 9px; margin: 0; font-size: 14px; line-height: 1.35; min-height: 2.7em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cc-who { font: 600 9px var(--mono); letter-spacing: 1.3px; color: var(--purple); margin-right: 4px; vertical-align: 2px; text-transform: uppercase; }
 .cc-resp { margin: 0; font-size: 11px; line-height: 1.4; min-height: 2.8em; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cc-hint { margin: 0; font: 9px var(--mono); letter-spacing: .6px; color: var(--muted); text-align: center; }
@@ -24,9 +42,32 @@ body.talk-live .cc-wave i { opacity: .95; animation: none; }
 .cc-states { list-style: none; margin: 0; padding: 0 0 0 14px; display: flex; flex-direction: column; gap: 6px; border-left: 1px solid var(--line); }
 .cc-states li { display: flex; align-items: center; gap: 8px; font: 500 9.5px var(--mono); letter-spacing: 1.1px; text-transform: uppercase; color: var(--muted); opacity: .65; transition: opacity .2s, color .2s; }
 .cc-states li .icon { width: 26px; height: 26px; padding: 6px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel-2); }
-.cc-states li.on { opacity: 1; color: var(--cyan); }
-.cc-states li.on .icon { border-color: color-mix(in srgb, var(--cyan) 50%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--cyan) 10%, transparent); color: var(--cyan); }
+.cc-states li.on { opacity: 1; color: var(--vc, var(--cyan)); }
+.cc-states li.on .icon { border-color: color-mix(in srgb, var(--cyan) 50%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--vc, var(--cyan)) 12%, transparent); color: var(--vc, var(--cyan)); border-color: color-mix(in srgb, var(--vc, var(--cyan)) 50%, transparent); }
 
 // push-to-talk: between Space holds the call stays up with the mic muted
 body.ptt-muted .mic-button[aria-pressed="true"] { color: var(--purple) !important; border-color: color-mix(in srgb, var(--purple) 40%, transparent) !important; box-shadow: none !important; }
 body.ptt-muted .gateway-status.live .status-dot { animation: none; background: var(--muted); opacity: .7; }
+
+// ---------- fullscreen ----------
+.cc-voice.is-full { position: fixed; inset: 0; z-index: 50; border-radius: 0; border: 0; padding: 4vh 5vw; display: grid; grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; align-items: center; gap: 2vh; overflow: auto; background: radial-gradient(ellipse at 50% 38%, color-mix(in srgb, var(--vc) 16%, var(--bg)), var(--bg) 70%); }
+.cc-voice.is-full .cc-voice-btn { grid-row: 1 / 3; grid-column: 1; align-self: start; width: clamp(180px, 34vh, 340px); height: clamp(180px, 34vh, 340px); margin-top: 2vh; }
+.cc-voice.is-full .cc-voice-main { grid-row: 2; grid-column: 1; align-self: end; width: min(1100px, 100%); gap: 1.4vh; margin-top: clamp(180px, 38vh, 380px); }
+.cc-voice.is-full .cc-voice-main h2 { font-size: clamp(16px, 2.4vh, 24px); justify-content: center; }
+.cc-voice.is-full .cc-voice-main h2 small { font-size: clamp(11px, 1.7vh, 15px); }
+.cc-voice.is-full .vo-full { position: absolute; top: 3vh; right: 3vw; margin: 0; width: 38px; height: 38px; }
+.cc-voice.is-full .cc-wave { height: clamp(60px, 12vh, 140px); gap: 5px; }
+.cc-voice.is-full .cc-wave i { max-width: 9px; height: calc(6px + var(--k) * (10px + var(--level, 0) * 130px)); }
+.cc-voice.is-full .cc-said { font-size: clamp(20px, 3.6vh, 38px); line-height: 1.3; -webkit-line-clamp: 4; text-align: center; border: 0; padding: 0; min-height: 3em; }
+.cc-voice.is-full .cc-resp { font-size: clamp(14px, 2.2vh, 22px); text-align: center; -webkit-line-clamp: 3; }
+.cc-voice.is-full .cc-hint { font-size: 12px; }
+.cc-voice.is-full .composer { max-width: 720px; width: 100%; align-self: center; margin: 0 auto; }
+.cc-voice.is-full .composer input { font-size: 16px; }
+.cc-voice.is-full .cc-states { grid-row: 3; flex-direction: row; gap: 28px; border: 0; padding: 0; }
+.cc-voice.is-full .cc-states li .icon { width: 36px; height: 36px; padding: 9px; }
+.cc-voice.is-full .cc-states li { font-size: 11px; }
+@media (max-width: 700px) { .cc-voice.is-full .cc-states { gap: 12px; flex-wrap: wrap; justify-content: center; } .cc-voice.is-full .cc-states li span { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .cc-voice .vo-ring { animation: none !important; }
+  .cc-voice .vo-core { transition: none; transform: none; }
+}
