@@ -41,7 +41,8 @@ function table(rows: string[]): string {
   return `<table>${head ? `<thead>${tr(head, 'th')}</thead>` : ''}<tbody>${body.map((r) => tr(r, 'td')).join('')}</tbody></table>`;
 }
 
-const codeBox = (lang: string, body: string) =>
+/** The dark code box with a language header and a Copy button; the body is escaped, never HTML. */
+export const codeBlock = (lang: string, body: string): string =>
   `<pre><span class="lv-code-head"><span class="lv-code-lang">${esc(lang || 'code')}</span><span class="lv-code-copy">Copy</span></span><code>${esc(body)}</code></pre>`;
 
 export function markdown(src: unknown): string {
@@ -69,7 +70,7 @@ export function markdown(src: unknown): string {
     const raw = lines[i]!;
     if (code !== null) {
       if (/^\s*```/.test(raw)) {
-        out += codeBox(lang, code.join('\n'));
+        out += codeBlock(lang, code.join('\n'));
         code = null;
       } else code.push(raw);
       continue;
@@ -129,7 +130,7 @@ export function markdown(src: unknown): string {
     close();
     para.push(l);
   }
-  if (code !== null) out += codeBox(lang, (code as string[]).join('\n'));
+  if (code !== null) out += codeBlock(lang, (code as string[]).join('\n'));
   flush();
   close();
   return out;

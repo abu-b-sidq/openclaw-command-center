@@ -6,6 +6,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { CanvasStore } from '../core/canvas';
 import { Fmt } from '../core/fmt';
 import { Session } from '../core/session';
 import { StateStore } from '../core/state-store';
@@ -48,6 +49,16 @@ import { Drawer, ThemeService, Toast, View, type Theme } from '../core/ui';
         Needs you <b>{{ store.waiting().length || '' }}</b>
       </button>
       <button type="button" (click)="drawer.open('reports')">Reports</button>
+      @if (canvas.items().length) {
+        <button
+          type="button"
+          [class.on]="canvas.open()"
+          [attr.aria-pressed]="canvas.open()"
+          (click)="canvas.open.set(!canvas.open())"
+        >
+          Canvas <b>{{ canvas.items().length }}</b>
+        </button>
+      }
     </nav>
     <div class="cc-top-r">
       <span
@@ -98,6 +109,7 @@ export class TopBar {
   protected readonly store = inject(StateStore);
   protected readonly talk = inject(Talk);
   protected readonly drawer = inject(Drawer);
+  protected readonly canvas = inject(CanvasStore);
   protected readonly theme = inject(ThemeService);
   protected readonly view = inject(View);
   private readonly fmt = inject(Fmt);

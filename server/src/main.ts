@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import type { Bootstrap, ResolveRequest } from '../../shared/api.ts';
 import { Auth } from './auth.ts';
+import { CanvasService } from './canvas.ts';
 import { agentOf, loadConfig, type Config } from './config.ts';
 import { Gateway } from './gateway.ts';
 import { StateService } from './state.ts';
@@ -15,6 +16,8 @@ const VERSION: string = JSON.parse(
   readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
 ).version;
 const MAX_BODY = 256 * 1024;
+/** Canvas pushes may carry a data: image or a long note. */
+const MAX_CANVAS_BODY = 12 * 1024 * 1024;
 
 const SECURITY_HEADERS: Record<string, string> = {
   'x-content-type-options': 'nosniff',
@@ -23,8 +26,9 @@ const SECURITY_HEADERS: Record<string, string> = {
   'permissions-policy': 'microphone=(self), camera=(), geolocation=()',
   'x-robots-tag': 'noindex, nofollow',
   // connect-src https: lets the browser post its WebRTC offer to the Talk provider the gateway picked.
+  // img-src https: lets the canvas show a picture the assistant links to; everything else stays same-origin.
   'content-security-policy':
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: mediastream:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
 };
 
 /** The assistant's display name and emoji: config first, else the agent's identity from the gateway. */
@@ -82,6 +86,7 @@ function main(): void {
   const auth = new Auth(cfg);
   const identity = new Identity(cfg, gw);
   const talk = new Talk(cfg, gw);
+  const canvas = new CanvasService(cfg);
   const state = new StateService(cfg, gw, () => identity.name);
   const web = new StaticFiles(cfg.server.staticDir, cfg.server.basePath);
   const google = cfg.integrations.google;
@@ -147,6 +152,7 @@ function main(): void {
         calendar: google.enabled && google.calendar,
         mail: google.enabled && google.mail,
         host: cfg.host.enabled,
+        canvas: cfg.canvas.enabled,
       },
       talk: { sessionKey: signedIn ? cfg.assistant.sessionKey : '' },
       dryRun: cfg.server.dryRun,
@@ -162,6 +168,9 @@ function main(): void {
   interface Route {
     method: 'GET' | 'POST';
     public?: boolean;
+    /** Also accepted with a valid canvas bearer token instead of a session cookie. */
+    token?: boolean;
+    maxBody?: number;
     handle: Handler;
   }
   const routes: Record<string, Route> = {
@@ -209,6 +218,28 @@ function main(): void {
       method: 'POST',
       handle: (_req, _res, b) => state.resolve(b as Partial<ResolveRequest>),
     },
+    canvas: {
+      method: 'GET',
+      handle: (_req, _res, _b, q) => {
+        const rev = Number(q.get('rev'));
+        return q.get('wait') === '0' ? canvas.state() : canvas.wait(rev, 25000);
+      },
+    },
+    'canvas/push': {
+      method: 'POST',
+      token: true,
+      maxBody: MAX_CANVAS_BODY,
+      handle: (_req, _res, b) => {
+        const { item, state: s } = canvas.push(b);
+        return { ok: true, id: item.id, rev: s.rev, item };
+      },
+    },
+    'canvas/clear': { method: 'POST', token: true, handle: () => canvas.clear() },
+    'canvas/remove': {
+      method: 'POST',
+      token: true,
+      handle: (_req, _res, b) => canvas.remove(String(b['id'] ?? '')),
+    },
   };
 
   const send = (res: ServerResponse, code: number, obj: unknown) => {
@@ -230,7 +261,26 @@ function main(): void {
 
     if (path === 'api/health')
       return send(res, 200, routes['health']!.handle(req, res, {}, url.searchParams));
-    if (!auth.admits(req)) return send(res, 403, { error: 'forbidden' });
+    // A canvas push carries its own bearer token, so it doesn't need the ambient proxy/peer-uid gate: an
+    // agent on this host can reach it without being the reverse proxy's uid.
+    const byToken = path.startsWith('api/canvas/') && canvas.tokenOk(req);
+    if (!byToken && !auth.admits(req)) return send(res, 403, { error: 'forbidden' });
+
+    // Image bytes the canvas read from disk, served back to the signed-in browser.
+    const media = /^api\/canvas\/media\/([\w-]{1,64})$/.exec(path);
+    if (media) {
+      if (req.method !== 'GET' && req.method !== 'HEAD')
+        return send(res, 405, { error: 'method not allowed' });
+      if (!auth.authenticated(req)) return send(res, 401, { error: 'sign in first' });
+      const m = canvas.mediaOf(media[1]!);
+      if (!m) return send(res, 404, { error: 'not found' });
+      res.writeHead(200, {
+        'content-type': m.type,
+        'content-length': m.data.length,
+        'cache-control': 'private, max-age=600',
+      });
+      return void res.end(req.method === 'HEAD' ? undefined : m.data);
+    }
 
     if (!path.startsWith('api/')) {
       if (req.method !== 'GET' && req.method !== 'HEAD')
@@ -242,23 +292,25 @@ function main(): void {
     const route = Object.hasOwn(routes, name) ? routes[name]! : null;
     if (!route) return send(res, 404, { error: 'not found' });
     if (req.method !== route.method) return send(res, 405, { error: 'method not allowed' });
-    if (!route.public && !auth.authenticated(req))
+    if (!route.public && !auth.authenticated(req) && !(route.token && byToken))
       return send(res, 401, { error: 'sign in first' });
 
     let body: Record<string, any> = {};
     if (route.method === 'POST') {
+      // The origin check stops a cross-site form riding on ambient credentials; a bearer token isn't ambient.
       if (
-        !originOk(req) ||
+        (!byToken && !originOk(req)) ||
         !String(req.headers['content-type'] || '').startsWith('application/json')
       ) {
         log('refused cross-origin or non-JSON POST', name, req.headers.origin ?? '-');
         return send(res, 403, { error: 'forbidden' });
       }
+      const cap = route.maxBody ?? MAX_BODY;
       let raw = '',
         size = 0;
       for await (const chunk of req) {
         size += (chunk as Buffer).length;
-        if (size > MAX_BODY) return send(res, 413, { error: 'request too large' });
+        if (size > cap) return send(res, 413, { error: 'request too large' });
         raw += chunk;
       }
       try {
@@ -292,6 +344,11 @@ function main(): void {
       `gateway ${cfg.gateway.url}, talk session ${cfg.assistant.sessionKey}${cfg.configFile ? `, config ${cfg.configFile}` : ''}`,
     );
     if (!web.available) log(`no web build in ${cfg.server.staticDir} yet: run "npm run build"`);
+    if (cfg.canvas.enabled)
+      log(
+        `canvas on: ${cfg.canvas.fileRoots.length ? `file roots ${cfg.canvas.fileRoots.join(', ')}` : 'no file roots (file reads off)'}` +
+          `${canvas.tokenFile ? `, push token in ${canvas.tokenFile}` : ', push token from config'}`,
+      );
     if (auth.generatedPassword) {
       log('────────────────────────────────────────────────────────────');
       log(`First run: generated sign-in password: ${auth.generatedPassword}`);

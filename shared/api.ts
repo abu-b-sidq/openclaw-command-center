@@ -25,9 +25,40 @@ export interface Bootstrap {
     calendar: boolean;
     mail: boolean;
     host: boolean;
+    canvas: boolean;
   };
   talk: { sessionKey: string };
   dryRun: boolean;
+}
+
+// ---------- canvas ----------
+
+/** What the assistant can put on the canvas. Nothing here is HTML: the app renders each kind itself. */
+export type CanvasKind = 'image' | 'markdown' | 'text' | 'code' | 'file';
+
+export interface CanvasItem {
+  id: string;
+  at: number;
+  kind: CanvasKind;
+  title: string | null;
+  caption: string | null;
+  /** image: a data: image, an https: URL, or "media/<id>" for bytes this server read itself. */
+  src: string | null;
+  alt: string | null;
+  /** markdown / text / code / file: the content, already size-capped. */
+  body: string | null;
+  /** code / file: the label in the code header. */
+  language: string | null;
+  /** file / local image: the file name only, never the path it came from. */
+  name: string | null;
+  bytes: number | null;
+  truncated: boolean;
+}
+
+/** GET /api/canvas?rev=…: long-polls until `rev` changes, then returns everything on the canvas. */
+export interface CanvasState {
+  rev: number;
+  items: CanvasItem[];
 }
 
 // ---------- approvals ----------

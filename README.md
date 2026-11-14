@@ -14,6 +14,9 @@ assistant out loud or type to it.
 - **Know when something needs you.** A badge in the tab title, a toast, and an optional desktop notification
   when the tab is in the background.
 - **Reports.** When the agent finishes delegated work later, its report shows up on screen.
+- **Canvas.** When the assistant has something to _show_ — a chart, a screenshot, a note, a snippet, the
+  contents of a file — it pushes it and a panel slides in on the right. Pin it, step back through the recent
+  items, go full screen, close it.
 - Optional calendar and inbox panels through the `gog` CLI. Light, dark and system themes. Works on a phone.
 
 The browser never sees your gateway token. A small Node server holds the gateway connection and hands the
@@ -144,6 +147,54 @@ be read, it returns a 503 and sends nothing. `force: true` on `POST approvals/re
 approval are serialized, and `chat.send` gets a stable `idempotencyKey` derived from the session, the decision and
 the attempt number.
 
+### Canvas
+
+The canvas is the right-hand panel for anything the assistant wants on screen. It is hidden until something
+is pushed to it, then slides in with the newest item. The strip at the top holds the recent items (default
+20, oldest dropped), **Pin** keeps the current one while new ones queue behind it, the expand button goes
+full screen (Esc comes back), Esc or the × closes the panel, and **Clear** empties it. The browser long-polls
+`GET api/canvas`, so an item appears as soon as it is pushed; the **Canvas** button in the top bar reopens it.
+
+It renders five kinds of item: `image`, `markdown`, `text`, `code` and `file`. Markdown goes through the
+app's own renderer (the same one approval files use); text, code and files land in a dark code box with a
+language header and a Copy button. Files are read-only — the canvas never writes or edits anything.
+
+**Pushing to it.** `POST <basePath>api/canvas/push` with a bearer token. The token is generated on first
+start into `<dataDir>/canvas-token` (mode 0600, never logged); set `canvas.token` or `CC_CANVAS_TOKEN` to
+choose your own. The token is the only credential this route needs, so an agent on the host can push without
+the browser's sign-in — and because a bearer token isn't ambient, the push route skips the CSRF origin check
+and any proxy/peer-uid gate.
+
+```bash
+TOKEN=$(cat ~/.local/share/openclaw-command-center/canvas-token)
+post() { curl -s -X POST http://127.0.0.1:18821/api/canvas/push \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' -d "$1"; }
+
+post '{"kind":"markdown","title":"Deploy status","body":"## prod release\n\n- **us-east-1** green"}'
+post '{"kind":"file","path":"~/.openclaw/workspace/notes/plan.md","caption":"The plan you asked for."}'
+post '{"path":"~/.openclaw/workspace/shots/latency.png","title":"Latency heatmap"}'
+post '{"kind":"code","language":"sql","title":"Slow query","body":"select count(*) from events;"}'
+```
+
+| Field                     |                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------- |
+| `kind`                    | `image`, `markdown`, `text`, `code`, `file`. Inferred from `path`/`src`/`body`. |
+| `body`                    | The content, for everything but an image.                                       |
+| `path`                    | A file to read, inside `canvas.fileRoots`. Image extensions become `image`.     |
+| `src`                     | An `https:` URL or a base64 `data:image/…` (no SVG).                            |
+| `title`, `caption`, `alt` | Shown in the header, under the content, and as the image's alt text.            |
+| `language`                | The label in the code header; guessed from the file extension otherwise.        |
+| `replace`                 | `true` clears the canvas first.                                                 |
+
+`POST api/canvas/clear` and `POST api/canvas/remove` (`{id}`) take the same token (or a signed-in session).
+
+**What it will not do.** No HTML is ever accepted or rendered — each kind is drawn by the app, and every
+string is escaped first. A `path` must resolve (symlinks included) inside `canvas.fileRoots`
+(`~/.openclaw/workspace` by default; `[]` turns file reads off); hidden paths, names that look like secrets
+(`.env`, `id_rsa`, `*token*`, `*.pem`, …), binaries and files over `canvas.maxFileBytes` are refused. Local
+images are served back as bytes from `api/canvas/media/<id>` to the signed-in browser, so the browser never
+sees a path. Items live in memory only: a restart empties the canvas.
+
 ## Deploying
 
 The server serves the built app and the API from one port, so any reverse proxy works.
@@ -187,6 +238,9 @@ All JSON, under `<basePath>api/`. Everything except `health`, `bootstrap` and `a
 | `POST approvals/resolve`                                       | `{kind, id, decision, force?}`: decide an approval.                       |
 | `POST chat`                                                    | `{text}`: a typed turn to the assistant session; returns its answer.      |
 | `POST talk/session`, `talk/offer`, `talk/events`, `talk/close` | Start a voice call, relay its WebRTC offer, long-poll its events, end it. |
+| `GET canvas?rev=`                                              | Long-polls until the canvas changes, then returns its items.              |
+| `POST canvas/push`, `canvas/clear`, `canvas/remove`            | Put something on the canvas, or take it off (bearer token or session).    |
+| `GET canvas/media/<id>`                                        | Bytes of an image the canvas read from disk.                              |
 
 ## License
 

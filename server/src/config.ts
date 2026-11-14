@@ -1,5 +1,5 @@
 // Configuration: defaults, then a JSON file (--config, CC_CONFIG or ./config.json), then environment overrides.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import type { AuthMode } from '../../shared/api.ts';
@@ -75,6 +75,19 @@ export interface Config {
     suggestions: string[];
   };
   talk: { enabled: boolean; maxLive: number };
+  /** The right-hand panel the assistant pushes images, notes, code and files to. */
+  canvas: {
+    enabled: boolean;
+    /** How many items the canvas keeps; the oldest drop off. */
+    maxItems: number;
+    /** The only directories a pushed `path` may come from (symlinks resolved). Empty: no file reads. */
+    fileRoots: string[];
+    maxFileBytes: number;
+    maxImageBytes: number;
+    maxTextChars: number;
+    /** Bearer token for POST api/canvas/push. Default: generated once into <dataDir>/canvas-token. */
+    token: string | null;
+  };
   approvals: { native: { enabled: boolean }; files: FileApprovalsConfig };
   integrations: {
     google: {
@@ -138,6 +151,15 @@ function defaults(): Omit<Config, 'configFile'> {
       suggestions: DEFAULT_SUGGESTIONS,
     },
     talk: { enabled: true, maxLive: 3 },
+    canvas: {
+      enabled: true,
+      maxItems: 20,
+      fileRoots: ['~/.openclaw/workspace'],
+      maxFileBytes: 2 * 1024 * 1024,
+      maxImageBytes: 8 * 1024 * 1024,
+      maxTextChars: 200000,
+      token: null,
+    },
     approvals: {
       native: { enabled: true },
       files: {
@@ -236,6 +258,7 @@ export function loadConfig(argv = process.argv.slice(2), env = process.env): Con
   if (env['OPENCLAW_GATEWAY_TOKEN']) g.token = env['OPENCLAW_GATEWAY_TOKEN'];
   if (env['OPENCLAW_GATEWAY_PASSWORD']) g.password = env['OPENCLAW_GATEWAY_PASSWORD'];
   if (env['CC_SESSION_KEY']) cfg.assistant.sessionKey = env['CC_SESSION_KEY'];
+  if (env['CC_CANVAS_TOKEN']) cfg.canvas.token = env['CC_CANVAS_TOKEN'];
 
   // Relative paths resolve against the config file's directory (or the working directory without one).
   const base = file ? dirname(file) : process.cwd();
@@ -244,6 +267,22 @@ export function loadConfig(argv = process.argv.slice(2), env = process.env): Con
   s.staticDir = abs(s.staticDir);
   g.openclawConfig = abs(g.openclawConfig);
   cfg.approvals.files.dir = abs(cfg.approvals.files.dir);
+  // Canvas file roots are matched against resolved paths, so resolve them too; a root that doesn't exist is
+  // dropped (the canvas then just refuses file reads) rather than failing the whole start-up.
+  if (
+    !Array.isArray(cfg.canvas.fileRoots) ||
+    cfg.canvas.fileRoots.some((p) => typeof p !== 'string')
+  )
+    throw new Error('Config: canvas.fileRoots must be a list of directories');
+  cfg.canvas.fileRoots = cfg.canvas.fileRoots
+    .map((p) => {
+      try {
+        return realpathSync(abs(p));
+      } catch {
+        return '';
+      }
+    })
+    .filter(Boolean);
 
   validate(cfg);
   return cfg;
@@ -297,6 +336,9 @@ function validate(cfg: Config): void {
   cfg.ui.suggestions = cfg.ui.suggestions.map(String).filter(Boolean).slice(0, 20);
   if (!Number.isInteger(cfg.talk.maxLive) || cfg.talk.maxLive < 1)
     fail('talk.maxLive must be a positive integer');
+  const cv = cfg.canvas;
+  for (const k of ['maxItems', 'maxFileBytes', 'maxImageBytes', 'maxTextChars'] as const)
+    if (!Number.isInteger(cv[k]) || cv[k] < 1) fail(`canvas.${k} must be a positive integer`);
   const f = cfg.approvals.files;
   if (f.gatedPattern) {
     try {

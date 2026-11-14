@@ -1,0 +1,45 @@
+// ---------- canvas: the right-hand panel the assistant pushes images, notes, code and files to ----------
+// Not modal: the command center stays usable behind it, so there is no scrim and no focus trap.
+.cv-wrap { position: fixed; inset: 0; z-index: 55; pointer-events: none; }
+.cv-panel { position: absolute; top: 10px; right: 10px; bottom: 10px; width: min(640px, calc(100vw - 20px)); box-sizing: border-box; background: var(--dialog-bg); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: -24px 0 70px #00000033; display: flex; flex-direction: column; overflow: hidden; transform: translateX(calc(100% + 16px)); transition: transform .22s ease; pointer-events: auto; outline: none; }
+.cv-wrap.open .cv-panel { transform: none; }
+.cv-panel:fullscreen { top: 0; right: 0; bottom: 0; width: 100vw; border: 0; border-radius: 0; box-shadow: none; background: var(--dialog-bg); }
+
+.cv-head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 14px; border-bottom: 1px solid var(--line); }
+.cv-head h2 { flex: 1; margin: 0; font: 500 13px var(--sans); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cv-kind { font: 500 8.5px var(--mono); letter-spacing: 1.2px; text-transform: uppercase; color: var(--cyan); border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent); border-radius: 6px; padding: 3px 6px; }
+.cv-when { font-size: 9.5px; color: var(--muted); white-space: nowrap; }
+.cv-head .icon-button.on { color: var(--cyan); background: var(--hover); }
+
+.cv-strip { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.cv-strip .icon-button { width: 26px; height: 26px; flex: none; }
+.cv-strip .icon-button[disabled] { opacity: .35; cursor: default; }
+.cv-next .icon { transform: rotate(180deg); }
+.cv-tabs { flex: 1; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.cv-tabs::-webkit-scrollbar { display: none; }
+.cv-tab { flex: none; border: 1px solid var(--line); background: none; color: var(--muted); font: 10px var(--sans); padding: 4px 9px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.cv-tab:hover { background: var(--hover); color: var(--text); }
+.cv-tab.on { color: var(--on-accent); background: var(--cyan); border-color: var(--cyan); }
+
+.cv-body { flex: 1; overflow: auto; padding: 14px 16px 16px; overscroll-behavior: contain; }
+.cv-figure { margin: 0; display: grid; place-items: center; }
+.cv-figure img { max-width: 100%; max-height: 72vh; object-fit: contain; border-radius: 10px; background: var(--track); }
+.cv-panel:fullscreen .cv-figure img { max-height: calc(100vh - 190px); }
+.cv-md { font-size: 12px; }
+.cv-md pre { margin: 0 0 10px; }
+.cv-md pre code { max-height: none; }
+.cv-caption { font-size: 11px; line-height: 1.6; color: var(--text); margin: 12px 0 0; }
+.cv-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 9.5px; color: var(--muted); margin: 10px 0 0; }
+.cv-meta code { font-family: "JetBrains Mono", ui-monospace, monospace; }
+.cv-meta em { font-style: normal; color: var(--amber); }
+.cv-empty { font-size: 11px; color: var(--muted); }
+
+.cv-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 14px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); font-size: 9.5px; color: var(--muted); }
+.cv-clear { border: 0; background: none; color: var(--muted); font: 10px var(--sans); cursor: pointer; padding: 4px 8px; border-radius: 7px; }
+.cv-clear:hover { background: var(--hover); color: var(--text); }
+
+@media (max-width: 760px) {
+  .cv-panel { top: 0; right: 0; bottom: 0; width: 100vw; border: 0; border-radius: 0; }
+  .cv-head { padding-top: calc(10px + env(safe-area-inset-top)); }
+}
+@media (prefers-reduced-motion: reduce) { .cv-panel { transition: none; } }

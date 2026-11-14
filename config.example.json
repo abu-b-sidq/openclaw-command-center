@@ -55,6 +55,16 @@
     "enabled": true,
     "maxLive": 3
   },
+  "canvas": {
+    "//": "The right-hand panel the assistant pushes images, notes, code and files to (POST api/canvas/push with the token in <dataDir>/canvas-token, or canvas.token / CC_CANVAS_TOKEN). A pushed file path must sit inside fileRoots; set it to [] to turn file reads off.",
+    "enabled": true,
+    "maxItems": 20,
+    "fileRoots": ["~/.openclaw/workspace"],
+    "maxFileBytes": 2097152,
+    "maxImageBytes": 8388608,
+    "maxTextChars": 200000,
+    "token": null
+  },
   "approvals": {
     "native": {
       "//": "Exec, plugin and system approvals from the gateway's own approval queue.",

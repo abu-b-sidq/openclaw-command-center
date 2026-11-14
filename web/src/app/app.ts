@@ -6,7 +6,9 @@ import {
   inject,
   untracked,
 } from '@angular/core';
+import { CanvasPanel } from './canvas/canvas';
 import { Alerts } from './core/alerts';
+import { CanvasStore } from './core/canvas';
 import { Session } from './core/session';
 import { StateStore } from './core/state-store';
 import { Talk } from './core/talk';
@@ -19,7 +21,7 @@ import { Login } from './login/login';
 @Component({
   selector: 'cc-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Dashboard, DrawerPanel, Login],
+  imports: [Dashboard, DrawerPanel, CanvasPanel, Login],
   template: `
     @if (!session.boot()) {
       <main class="cc-gate cc-splash">
@@ -40,6 +42,9 @@ import { Login } from './login/login';
     } @else {
       <cc-dashboard />
       <cc-drawer />
+      @if (session.boot()?.features?.canvas) {
+        <cc-canvas />
+      }
     }
     <div class="toast" [class.show]="toast.visible()" role="status" aria-live="polite">
       {{ toast.text() }}
@@ -53,6 +58,7 @@ export class App {
   private readonly talk = inject(Talk);
   private readonly alerts = inject(Alerts);
   private readonly view = inject(View);
+  private readonly canvas = inject(CanvasStore);
 
   constructor() {
     void this.session.load();
@@ -65,8 +71,10 @@ export class App {
         if (on) {
           this.talk.greet();
           this.store.start();
+          if (this.session.boot()?.features.canvas) this.canvas.start();
         } else {
           this.store.stop();
+          this.canvas.stop();
           this.talk.end();
         }
       });
